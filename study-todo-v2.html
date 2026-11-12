@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공부 기록</title>
+<!-- 웹폰트: IBM Plex Sans KR (구글 폰트) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<!-- [2차 개선] 라이브러리: Chart.js (통계 그래프에 사용) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<!-- [2차 개선] 라이브러리: SortableJS (할 일 드래그로 순서 바꾸기) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<style>
+/* ===============================
+   1. 색상 토큰 (라이트/다크 모드)
+   =============================== */
+:root{
+  --bg:#FFFFFF;
+  --ink:#1B1E24;          /* 기본 글자색 */
+  --ink-soft:#5A6068;     /* 보조 글자색 */
+  --line:#E4E6EA;         /* 구분선 */
+  --card:#F7F8FA;         /* 옅은 배경 */
+  --blue:#2B50E0;         /* 포인트 파랑 */
+  --blue-soft:#EBF0FF;
+  --hl:#FFE34D;           /* 형광펜 노랑: 오늘/완료 강조 */
+  --hl-ink:#6B5A00;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15171C; --ink:#E8EAEE; --ink-soft:#9AA1AB; --line:#2A2E36;
+    --card:#1D2027; --blue:#7C96FF; --blue-soft:#232A45;
+    --hl:#C9A800; --hl-ink:#15171C;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15171C; --ink:#E8EAEE; --ink-soft:#9AA1AB; --line:#2A2E36;
+  --card:#1D2027; --blue:#7C96FF; --blue-soft:#232A45;
+  --hl:#C9A800; --hl-ink:#15171C;
+}
+
+/* ===============================
+   2. 기본 레이아웃
+   =============================== */
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  line-height:1.6;
+}
+.wrap{max-width:720px; margin:0 auto; padding:0 20px 80px;}
+header{padding:28px 0 8px;}
+.logo{font-size:1.5rem; font-weight:700; letter-spacing:-0.02em;}
+.logo .dot{color:var(--blue);}
+.today-line{color:var(--ink-soft); font-size:0.95rem; margin-top:2px;}
+.mark{
+  background:linear-gradient(transparent 55%, var(--hl) 55%, var(--hl) 92%, transparent 92%);
+  padding:0 2px;
+}
+
+nav{
+  display:flex; gap:4px; border-bottom:2px solid var(--line);
+  margin:18px 0 26px; overflow-x:auto;
+}
+nav a{
+  padding:10px 14px; color:var(--ink-soft); text-decoration:none;
+  font-weight:500; white-space:nowrap;
+  border-bottom:2px solid transparent; margin-bottom:-2px;
+}
+nav a.active{color:var(--ink); font-weight:700; border-bottom-color:var(--blue);}
+nav a:focus-visible{outline:2px solid var(--blue); outline-offset:2px; border-radius:4px;}
+
+.page{display:none;}
+.page.show{display:block;}
+h2{font-size:1.25rem; font-weight:700; margin-bottom:4px;}
+.sub{color:var(--ink-soft); font-size:0.9rem; margin-bottom:20px;}
+
+/* ===============================
+   3. 홈 화면
+   =============================== */
+.home-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+@media (max-width:560px){ .home-grid{grid-template-columns:1fr;} }
+.panel{
+  background:var(--card); border:1px solid var(--line);
+  border-radius:12px; padding:18px 20px;
+}
+.panel h3{font-size:1rem; font-weight:600; margin-bottom:10px;}
+.panel h3 a{color:var(--ink-soft); font-size:0.8rem; font-weight:500; float:right; text-decoration:none;}
+.panel h3 a:hover{color:var(--blue);}
+.big-num{font-size:2rem; font-weight:700; color:var(--blue);}
+.big-num-label{color:var(--ink-soft); font-size:0.9rem;}
+.mini-list{list-style:none;}
+.mini-list li{
+  padding:6px 0; border-bottom:1px dashed var(--line); font-size:0.95rem;
+  display:flex; justify-content:space-between;
+}
+.mini-list li:last-child{border-bottom:none;}
+.mini-list .num{color:var(--ink-soft); font-size:0.85rem;}
+
+/* ===============================
+   4. 할 일 목록
+   =============================== */
+.todo-form{display:flex; gap:8px; margin-bottom:18px;}
+.todo-form input{
+  flex:1; border:1px solid var(--line); border-radius:8px;
+  padding:11px 14px; font-family:inherit; font-size:0.95rem;
+  background:var(--bg); color:var(--ink);
+}
+.todo-form input:focus-visible{outline:2px solid var(--blue); outline-offset:1px;}
+.btn{
+  border:none; background:var(--blue); color:#fff; border-radius:8px;
+  padding:11px 20px; font-family:inherit; font-size:0.95rem;
+  font-weight:600; cursor:pointer;
+}
+.todo-list{list-style:none; display:grid; gap:10px;}
+.todo-item{
+  display:flex; align-items:center; gap:12px;
+  background:var(--card); border:1px solid var(--line);
+  border-radius:10px; padding:12px 16px;
+}
+.todo-item input[type="checkbox"]{
+  width:19px; height:19px; accent-color:var(--blue); cursor:pointer; flex-shrink:0;
+}
+/* [2차 개선] 글자 길이만큼만 차지하게 해서 형광펜이 줄 끝까지 번지지 않게 함 (삭제 버튼은 margin-right:auto로 오른쪽 끝 유지) */
+.todo-item .text{flex:0 1 auto; margin-right:auto; word-break:break-all;}
+/* 완료한 항목은 형광펜을 칠하고 취소선을 긋는다 */
+.todo-item.done .text{
+  color:var(--ink-soft); text-decoration:line-through;
+  background:linear-gradient(transparent 55%, var(--hl) 55%, var(--hl) 92%, transparent 92%);
+}
+.todo-item .del{
+  border:none; background:none; color:var(--ink-soft);
+  cursor:pointer; font-size:0.8rem; font-family:inherit; flex-shrink:0;
+}
+.todo-item .del:hover{color:var(--ink);}
+.empty{color:var(--ink-soft); font-size:0.92rem; padding:20px 0; text-align:center;}
+/* [2차 개선] 드래그 손잡이: 이 부분을 잡고 끌어서 순서를 바꾼다 */
+.todo-item .handle{
+  cursor:grab; color:var(--ink-soft); font-size:1.1rem; line-height:1;
+  padding:0 2px; user-select:none; flex-shrink:0; letter-spacing:-2px;
+}
+.todo-item .handle:active{cursor:grabbing;}
+/* 끌고 있는 동안 원래 자리에 남는 흔적 */
+.todo-item.drag-ghost{opacity:0.4; border-style:dashed;}
+/* [2차 개선] 목록 아래 도구 줄 (완료 개수 + 정리 버튼) */
+.todo-tools{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:14px; font-size:0.88rem; color:var(--ink-soft);
+}
+.btn-ghost{
+  border:1px solid var(--line); background:var(--bg); color:var(--ink);
+  border-radius:8px; padding:7px 14px; font-family:inherit; font-size:0.85rem; cursor:pointer;
+}
+.btn-ghost:hover{background:var(--blue-soft);}
+.btn-ghost:disabled{opacity:0.45; cursor:default; background:var(--bg);}
+/* [2차 개선] 입력 안내 메시지 (alert 창 대신 화면 안에 표시) */
+.form-msg{color:var(--blue); font-size:0.85rem; margin-top:8px; min-height:1.2em;}
+
+/* ===============================
+   5. 완료 기록
+   =============================== */
+.history-group{margin-bottom:22px;}
+.history-group h4{
+  font-size:0.9rem; font-weight:600; color:var(--ink-soft); margin-bottom:8px;
+}
+.history-group ul{list-style:none;}
+.history-group li{
+  padding:7px 0; border-bottom:1px dashed var(--line); font-size:0.95rem;
+}
+.history-group li:last-child{border-bottom:none;}
+
+/* ===============================
+   6. 통계
+   =============================== */
+.stat-row{display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap;}
+.stat-box{
+  flex:1; min-width:140px; background:var(--card);
+  border:1px solid var(--line); border-radius:12px; padding:16px 18px;
+}
+.stat-box .v{font-size:1.6rem; font-weight:700; color:var(--blue);}
+.stat-box .l{font-size:0.85rem; color:var(--ink-soft);}
+.chart-wrap{
+  background:var(--card); border:1px solid var(--line);
+  border-radius:12px; padding:18px;
+  height:280px; /* 그래프 높이를 고정해서 화면이 넓어도 너무 커지지 않게 */
+}
+
+/* ===============================
+   7. 디데이
+   =============================== */
+.dday-list{list-style:none; display:grid; gap:12px; margin-bottom:6px;}
+.dday-item{
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--card); border:1px solid var(--line);
+  border-radius:12px; padding:14px 18px;
+}
+.dday-item .name{font-weight:600;}
+.dday-item .date{color:var(--ink-soft); font-size:0.85rem;}
+.dday-item .count{font-size:1.3rem; font-weight:700; color:var(--blue);}
+.dday-item .count.past{color:var(--ink-soft);}
+.dday-item button{
+  border:none; background:none; color:var(--ink-soft);
+  cursor:pointer; font-size:0.8rem; margin-left:12px; font-family:inherit;
+}
+.form-row{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;}
+.form-row input{
+  border:1px solid var(--line); border-radius:8px;
+  padding:9px 12px; font-family:inherit; font-size:0.9rem;
+  background:var(--bg); color:var(--ink);
+}
+.form-row input[type="text"]{flex:1; min-width:140px;}
+
+footer{margin-top:60px; color:var(--ink-soft); font-size:0.8rem; text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="today-line" id="todayLine"></div>
+  </header>
+
+  <!-- 해시 기반 내비게이션: 주소창 #값으로 페이지 전환 -->
+  <nav id="nav">
+    <a href="#home">홈</a>
+    <a href="#todo">할 일</a>
+    <a href="#history">완료 기록</a>
+    <a href="#stats">통계</a>
+    <a href="#dday">디데이</a>
+  </nav>
+
+  <!-- ===== 메인 페이지: 오늘 요약 ===== -->
+  <section class="page" id="page-home">
+    <h2>오늘 한눈에 보기</h2>
+    <p class="sub">오늘 할 일과 공부 기록을 한 화면에서 확인하세요.</p>
+    <div class="home-grid">
+      <div class="panel">
+        <h3>오늘 진행률</h3>
+        <div class="big-num" id="homeProgress">0%</div>
+        <div class="big-num-label" id="homeProgressLabel">아직 할 일이 없어요</div>
+      </div>
+      <div class="panel">
+        <h3>디데이 <a href="#dday">전체 보기</a></h3>
+        <div class="big-num" id="homeDday">-</div>
+        <div class="big-num-label" id="homeDdayLabel"></div>
+      </div>
+      <div class="panel" style="grid-column:1/-1;">
+        <h3>남은 할 일 <a href="#todo">관리하기</a></h3>
+        <ul class="mini-list" id="homeTodos"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 세부 페이지 1: 할 일 ===== -->
+  <section class="page" id="page-todo">
+    <h2>할 일</h2>
+    <p class="sub">체크하면 <span class="mark">형광펜</span>이 그어지고 완료 기록에 저장됩니다. 왼쪽 손잡이를 끌어 순서를 바꿀 수 있어요.</p>
+    <div class="todo-form">
+      <input type="text" id="todoInput" placeholder="예: 자바 8단원 문제 풀기" maxlength="60">
+      <button class="btn" id="todoAdd">추가</button>
+    </div>
+    <ul class="todo-list" id="todoList"></ul>
+    <!-- [2차 개선] 완료한 항목을 목록에서 한 번에 정리 (완료 기록은 그대로 남는다) -->
+    <div class="todo-tools">
+      <span id="todoCount"></span>
+      <button class="btn-ghost" id="todoClear">완료한 항목 정리</button>
+    </div>
+  </section>
+
+  <!-- ===== 세부 페이지 2: 완료 기록 ===== -->
+  <section class="page" id="page-history">
+    <h2>완료 기록</h2>
+    <p class="sub">완료한 할 일이 날짜별로 쌓입니다.</p>
+    <div id="historyArea"></div>
+  </section>
+
+  <!-- ===== 세부 페이지 3: 통계 ===== -->
+  <section class="page" id="page-stats">
+    <h2>통계</h2>
+    <p class="sub">최근 7일 동안의 완료 기록입니다.</p>
+    <div class="stat-row">
+      <div class="stat-box"><div class="v" id="statTotal">0</div><div class="l">누적 완료</div></div>
+      <div class="stat-box"><div class="v" id="statWeek">0</div><div class="l">최근 7일 완료</div></div>
+      <div class="stat-box"><div class="v" id="statStreak">0일</div><div class="l">연속 기록</div></div>
+    </div>
+    <!-- [2차 개선] 최근 7일 막대그래프 -->
+    <div class="chart-wrap">
+      <canvas id="statChart" height="200" aria-label="최근 7일 완료 개수 그래프" role="img"></canvas>
+    </div>
+  </section>
+
+  <!-- ===== 세부 페이지 4: 디데이 ===== -->
+  <section class="page" id="page-dday">
+    <h2>디데이</h2>
+    <p class="sub">중요한 날까지 남은 날짜를 계산합니다.</p>
+    <ul class="dday-list" id="ddayList"></ul>
+    <div class="form-row">
+      <input type="text" id="ddayName" placeholder="이름 (예: 정보처리기능사 시험)">
+      <input type="date" id="ddayDate">
+    </div>
+    <button class="btn" id="ddayAdd" style="margin-top:14px;">추가하기</button>
+    <p class="form-msg" id="ddayMsg" role="status"></p>
+  </section>
+
+  <footer>웹 프로그래밍 실무 수행평가</footer>
+</div>
+
+<script>
+/* =========================================================
+   1. 저장소 도우미
+   - localStorage는 환경에 따라 실패할 수 있어 try/catch로 감싼다.
+   ========================================================= */
+function loadData(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  }catch(e){ return fallback; }
+}
+function saveData(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
+}
+
+/* =========================================================
+   2. 날짜 도우미
+   ========================================================= */
+const now = new Date();
+const DAY_NAMES = ["일","월","화","수","목","금","토"];
+document.getElementById("todayLine").textContent =
+  `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 (${DAY_NAMES[now.getDay()]})`;
+
+// Date → "2026-09-16" 형태 문자열
+function dateKey(d){
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${d.getFullYear()}-${m}-${dd}`;
+}
+const todayKey = dateKey(now);
+
+function daysUntil(dateStr){
+  const target = new Date(dateStr + "T00:00:00");
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target - base) / 86400000);
+}
+function ddayText(diff){
+  if(diff > 0) return "D-" + diff;
+  if(diff === 0) return "D-DAY";
+  return "지남";
+}
+
+/* =========================================================
+   3. 데이터
+   - todos: 진행 중인 할 일 목록 [{ id, text, done }]
+   - history: 완료 기록 { "2026-09-16": ["할 일1", ...], ... }
+   ========================================================= */
+let todos = loadData("study-todos", []);
+let history = loadData("study-history", {});
+let ddays = loadData("study-ddays", [
+  { name:"웹 최종 발표", date:"2026-10-27" },
+  { name:"겨울방학", date:"2026-12-30" }
+]);
+
+/* =========================================================
+   4. 페이지 전환 (해시 라우팅)
+   ========================================================= */
+const PAGES = ["home","todo","history","stats","dday"];
+function route(){
+  let hash = location.hash.replace("#","");
+  if(!PAGES.includes(hash)) hash = "home";
+  PAGES.forEach(p => {
+    document.getElementById("page-" + p).classList.toggle("show", p === hash);
+  });
+  document.querySelectorAll("#nav a").forEach(a => {
+    a.classList.toggle("active", a.getAttribute("href") === "#" + hash);
+  });
+  if(hash === "stats") renderStats(); // 통계 페이지를 열 때마다 최신으로 그린다
+}
+window.addEventListener("hashchange", route);
+
+/* =========================================================
+   5. 할 일 목록
+   ========================================================= */
+function renderTodos(){
+  const list = document.getElementById("todoList");
+  if(todos.length === 0){
+    list.innerHTML = "<li class='empty'>할 일을 추가해보세요. 작게 쪼갤수록 체크할 맛이 납니다.</li>";
+  }else{
+    list.innerHTML = "";
+    todos.forEach(t => {
+      const li = document.createElement("li");
+      li.className = "todo-item" + (t.done ? " done" : "");
+      li.dataset.id = t.id; // [2차 개선] 드래그 후 순서를 저장할 때 어떤 항목인지 알기 위해 사용
+      li.innerHTML = `
+        <span class="handle" title="끌어서 순서 바꾸기" aria-hidden="true">⋮⋮</span>
+        <input type="checkbox" ${t.done ? "checked" : ""} data-id="${t.id}" aria-label="완료 체크">
+        <span class="text"></span>
+        <button class="del" data-id="${t.id}">삭제</button>`;
+      // 사용자가 입력한 글자는 textContent로 넣어야 안전하다 (HTML로 해석 방지)
+      li.querySelector(".text").textContent = t.text;
+      list.appendChild(li);
+    });
+  }
+  // [2차 개선] 목록 아래 도구 줄 갱신
+  const doneCount = todos.filter(t => t.done).length;
+  document.getElementById("todoCount").textContent =
+    todos.length ? `${todos.length}개 중 ${doneCount}개 완료` : "";
+  document.getElementById("todoClear").disabled = (doneCount === 0);
+  renderHome();
+}
+
+// [2차 개선] SortableJS로 드래그 정렬 기능 연결 (목록 요소에 한 번만 연결하면 된다)
+// 라이브러리를 불러오지 못한 경우에는 드래그 없이 기본 기능만 동작한다
+if(typeof Sortable !== "undefined"){
+  Sortable.create(document.getElementById("todoList"), {
+    handle: ".handle",          // 손잡이를 잡았을 때만 드래그 (체크박스 클릭과 겹치지 않게)
+    animation: 150,             // 자리 이동 애니메이션 (밀리초)
+    ghostClass: "drag-ghost",
+    filter: ".empty",           // 빈 목록 안내 문구는 끌 수 없게
+    onEnd: () => {
+      // 화면에 보이는 순서대로 id를 읽어서 todos 배열을 같은 순서로 다시 정렬한다
+      const order = [...document.querySelectorAll("#todoList .todo-item")].map(li => Number(li.dataset.id));
+      todos.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      saveData("study-todos", todos);
+      renderHome(); // 홈의 '남은 할 일' 순서도 맞춰준다
+    }
+  });
+}
+// '완료한 항목 정리' 버튼 (완료한 항목이 없으면 renderTodos에서 비활성화된다)
+document.getElementById("todoClear").addEventListener("click", () => {
+  // [2차 개선] 완료한 항목만 목록에서 지운다. history(완료 기록)는 건드리지 않는다
+  todos = todos.filter(t => !t.done);
+  saveData("study-todos", todos);
+  renderTodos();
+});
+
+// 할 일 추가
+function addTodo(){
+  const input = document.getElementById("todoInput");
+  const text = input.value.trim();
+  if(!text) return;
+  // id는 현재 시각(밀리초)으로 만들어 겹치지 않게 한다
+  todos.push({ id: Date.now(), text: text, done: false });
+  saveData("study-todos", todos);
+  input.value = "";
+  input.focus();
+  renderTodos();
+}
+document.getElementById("todoAdd").addEventListener("click", addTodo);
+// 엔터 키로도 추가할 수 있게 한다
+document.getElementById("todoInput").addEventListener("keydown", (e) => {
+  if(e.key === "Enter") addTodo();
+});
+
+// 체크/삭제 처리 (목록 전체에 이벤트 하나만 걸어서 처리한다)
+document.getElementById("todoList").addEventListener("click", (e) => {
+  // 1) 체크박스를 눌렀을 때: 완료 상태를 토글하고 기록에 반영
+  if(e.target.type === "checkbox"){
+    const id = Number(e.target.dataset.id);
+    const todo = todos.find(t => t.id === id);
+    if(!todo) return;
+    todo.done = e.target.checked;
+    if(todo.done){
+      // 완료 → 오늘 날짜의 완료 기록에 추가하고, 언제 완료했는지 할 일에 적어둔다
+      if(!history[todayKey]) history[todayKey] = [];
+      history[todayKey].push(todo.text);
+      todo.doneDate = todayKey;
+    }else{
+      // [2차 개선] 체크 해제 → '완료했던 날짜'의 기록에서 제거
+      // (1차 버전은 항상 오늘 기록에서만 지워서, 어제 체크한 걸 오늘 해제하면 기록이 남는 문제가 있었다)
+      const day = todo.doneDate || todayKey;
+      if(history[day]){
+        const idx = history[day].indexOf(todo.text);
+        if(idx > -1) history[day].splice(idx, 1);
+      }
+      delete todo.doneDate;
+    }
+    saveData("study-todos", todos);
+    saveData("study-history", history);
+    renderTodos();
+    renderHistory();
+  }
+  // 2) 삭제 버튼을 눌렀을 때
+  if(e.target.classList.contains("del")){
+    const id = Number(e.target.dataset.id);
+    todos = todos.filter(t => t.id !== id);
+    saveData("study-todos", todos);
+    renderTodos();
+  }
+});
+
+/* =========================================================
+   6. 완료 기록 (날짜별로 묶어서 보여준다)
+   ========================================================= */
+function renderHistory(){
+  const area = document.getElementById("historyArea");
+  const dates = Object.keys(history)
+    .filter(d => history[d].length > 0)
+    .sort()
+    .reverse(); // 최근 날짜가 위로
+  if(dates.length === 0){
+    area.innerHTML = "<p class='empty'>아직 완료 기록이 없어요. 할 일을 체크하면 여기에 쌓입니다.</p>";
+    return;
+  }
+  area.innerHTML = dates.map(d => `
+    <div class="history-group">
+      <h4>${d}${d === todayKey ? " (오늘)" : ""} · ${history[d].length}개 완료</h4>
+      <ul>${history[d].map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+    </div>`).join("");
+}
+// 사용자 입력을 HTML에 넣을 때 태그로 해석되지 않도록 바꿔준다
+function escapeHtml(s){
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/* =========================================================
+   7. 통계 (숫자 요약 + [2차 개선] Chart.js 그래프)
+   ========================================================= */
+let chart = null; // 이미 그린 차트를 기억해 두었다가, 다시 그릴 때 지운다
+
+function renderStats(){
+  // 최근 7일 날짜 라벨과 각 날짜의 완료 개수를 구한다
+  const labels = [], counts = [];
+  for(let i = 6; i >= 0; i--){
+    const d = new Date(now); d.setDate(now.getDate() - i);
+    labels.push(`${d.getMonth()+1}/${d.getDate()}`);
+    counts.push((history[dateKey(d)] || []).length);
+  }
+  // 숫자 요약 3가지
+  const total = Object.values(history).reduce((sum, arr) => sum + arr.length, 0);
+  const week = counts.reduce((a,b) => a + b, 0);
+  // 연속 기록: 오늘부터 거꾸로 세며 완료가 있는 날이 며칠 이어지는지
+  let streak = 0;
+  for(let i = 0; ; i++){
+    const d = new Date(now); d.setDate(now.getDate() - i);
+    if((history[dateKey(d)] || []).length > 0) streak++;
+    else break;
+  }
+  document.getElementById("statTotal").textContent = total;
+  document.getElementById("statWeek").textContent = week;
+  document.getElementById("statStreak").textContent = streak + "일";
+
+  // [2차 개선] 막대그래프 그리기
+  // 라이브러리를 불러오지 못한 경우(인터넷 끊김 등)에는 숫자 요약만 보여준다
+  if(typeof Chart === "undefined") return;
+  const css = getComputedStyle(document.documentElement);
+  const color = (name) => css.getPropertyValue(name).trim(); // CSS 변수 색을 그대로 사용 → 다크 모드에도 맞춰짐
+  if(chart) chart.destroy(); // 같은 캔버스에 겹쳐 그려지지 않도록 기존 차트 제거
+  chart = new Chart(document.getElementById("statChart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "완료한 할 일",
+        data: counts,
+        backgroundColor: color("--hl"),   // 형광펜 노랑
+        borderColor: color("--blue"),
+        borderWidth: 1.5,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      maintainAspectRatio: false, // 비율 대신 .chart-wrap의 높이(280px)에 맞춘다
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, color: color("--ink-soft") }, grid: { color: color("--line") } },
+        x: { ticks: { color: color("--ink-soft") }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+/* =========================================================
+   8. 디데이
+   ========================================================= */
+function renderDdays(){
+  const sorted = [...ddays].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const list = document.getElementById("ddayList");
+  list.innerHTML = "";
+  sorted.forEach((d) => {
+    const diff = daysUntil(d.date);
+    const li = document.createElement("li");
+    li.className = "dday-item";
+    li.innerHTML = `
+      <div>
+        <div class="name">${escapeHtml(d.name)}</div>
+        <div class="date">${d.date}</div>
+      </div>
+      <div>
+        <span class="count ${diff < 0 ? "past" : ""}">${ddayText(diff)}</span>
+        <button data-name="${escapeHtml(d.name)}" data-date="${d.date}">삭제</button>
+      </div>`;
+    list.appendChild(li);
+  });
+  renderHome();
+}
+document.getElementById("ddayList").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  ddays = ddays.filter(d => !(d.name === btn.dataset.name && d.date === btn.dataset.date));
+  saveData("study-ddays", ddays);
+  renderDdays();
+});
+document.getElementById("ddayAdd").addEventListener("click", () => {
+  const name = document.getElementById("ddayName").value.trim();
+  const date = document.getElementById("ddayDate").value;
+  const msg = document.getElementById("ddayMsg");
+  // [2차 개선] alert 창 대신 화면 안에 안내 문구를 보여준다 (흐름이 끊기지 않게)
+  if(!name || !date){ msg.textContent = "이름과 날짜를 모두 입력해주세요."; return; }
+  ddays.push({ name, date });
+  saveData("study-ddays", ddays);
+  document.getElementById("ddayName").value = "";
+  document.getElementById("ddayDate").value = "";
+  msg.textContent = `'${name}' 디데이를 추가했어요.`;
+  renderDdays();
+});
+// [2차 개선] 디데이 이름 칸에서도 Enter 키로 바로 추가
+document.getElementById("ddayName").addEventListener("keydown", (e) => {
+  if(e.key === "Enter") document.getElementById("ddayAdd").click();
+});
+
+/* =========================================================
+   9. 홈 화면
+   ========================================================= */
+function renderHome(){
+  // 오늘 진행률 = 완료 / 전체 (진행 중 목록 기준)
+  const doneCount = todos.filter(t => t.done).length;
+  const percent = todos.length ? Math.round(doneCount / todos.length * 100) : 0;
+  document.getElementById("homeProgress").textContent = percent + "%";
+  document.getElementById("homeProgressLabel").textContent =
+    todos.length ? `${todos.length}개 중 ${doneCount}개 완료` : "아직 할 일이 없어요";
+
+  // 남은 할 일 목록 (최대 5개)
+  const remaining = todos.filter(t => !t.done).slice(0, 5);
+  document.getElementById("homeTodos").innerHTML = remaining.length
+    ? remaining.map(t => `<li>${escapeHtml(t.text)}</li>`).join("")
+    : "<li>남은 할 일이 없습니다. 수고했어요!</li>";
+
+  // 가장 가까운 디데이
+  const nextD = [...ddays]
+    .filter(d => daysUntil(d.date) >= 0)
+    .sort((a,b) => new Date(a.date) - new Date(b.date))[0];
+  document.getElementById("homeDday").textContent = nextD ? ddayText(daysUntil(nextD.date)) : "-";
+  document.getElementById("homeDdayLabel").textContent = nextD ? nextD.name : "디데이를 추가해보세요";
+}
+
+/* =========================================================
+   10. 시작
+   ========================================================= */
+renderTodos();
+renderHistory();
+renderDdays();
+route();
+</script>
+</body>
+</html>
